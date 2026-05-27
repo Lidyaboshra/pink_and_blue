@@ -92,205 +92,76 @@ class _CartScreenState extends State<CartScreen> {
       return;
     }
 
-    // Show confirmation dialog
-    final shouldProceed = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(
-          children: [
-            Icon(Icons.check_circle, color: Color(0xFFFF69B4), size: 28),
-            SizedBox(width: 10),
-            Text('Confirm Order'),
-          ],
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Please confirm your order details:'),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.grey[50],
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.shopping_cart,
-                            size: 16, color: Color(0xFFFF69B4)),
-                        const SizedBox(width: 8),
-                        Text('${cart.items.length} items'),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        const Icon(Icons.attach_money,
-                            size: 16, color: Color(0xFFFF69B4)),
-                        const SizedBox(width: 8),
-                        Text('Total: ${cart.total.toStringAsFixed(2)} EGP'),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        const Icon(Icons.phone,
-                            size: 16, color: Color(0xFFFF69B4)),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Phone: ${_phoneController.text}',
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                            _selectedLocationType == 'delivery'
-                                ? Icons.location_on
-                                : Icons.store,
-                            size: 16,
-                            color: const Color(0xFFFF69B4)),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            _selectedLocationType == 'delivery'
-                                ? 'Delivery to: ${_locationController.text}'
-                                : 'Pickup order',
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (_notesController.text.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Icon(Icons.note,
-                                size: 16, color: Color(0xFFFF69B4)),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Notes: ${_notesController.text}',
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.grey[600],
-            ),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFFF69B4),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: const Text('Confirm Order'),
-          ),
-        ],
-      ),
-    );
+    setState(() {
+      _isPlacingOrder = true;
+    });
 
-    if (shouldProceed == true) {
-      setState(() {
-        _isPlacingOrder = true;
-      });
+    try {
+      // Send order via WhatsApp
+      await WhatsAppHelper.sendOrderWithLocation(
+        context,
+        cart,
+        _phoneController.text,
+        _selectedLocationType == 'delivery'
+            ? _locationController.text
+            : 'Pickup',
+        _notesController.text,
+      );
 
-      try {
-        // Send order via WhatsApp
-        await WhatsAppHelper.sendOrderWithLocation(
-          context,
-          cart,
-          _phoneController.text,
-          _selectedLocationType == 'delivery'
-              ? _locationController.text
-              : 'Pickup',
-          _notesController.text,
+      if (mounted) {
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white, size: 24),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Order placed successfully! Thank you for your order.',
+                    style: TextStyle(fontSize: 14),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.all(Radius.circular(12)),
+            ),
+            duration: Duration(seconds: 3),
+          ),
         );
 
-        if (mounted) {
-          // Show success message
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Row(
-                children: [
-                  Icon(Icons.check_circle, color: Colors.white, size: 24),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Order placed successfully! Thank you for your order.',
-                      style: TextStyle(fontSize: 14),
-                    ),
-                  ),
-                ],
-              ),
-              backgroundColor: Colors.green,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.all(Radius.circular(12)),
-              ),
-              duration: Duration(seconds: 3),
-            ),
-          );
+        // Clear cart after successful order
+        cart.clearCart();
 
-          // Clear cart after successful order
-          cart.clearCart();
+        // Clear form fields
+        _locationController.clear();
+        _phoneController.clear();
+        _notesController.clear();
+        _selectedLocationType = 'delivery';
 
-          // Clear form fields
-          _locationController.clear();
-          _phoneController.clear();
-          _notesController.clear();
-          _selectedLocationType = 'delivery';
-
-          // Navigate back after delay
-          await Future.delayed(const Duration(seconds: 2));
-          if (mounted) {
-            // Navigator.pop(context);
-          }
-        }
-      } catch (e) {
+        // Navigate back after delay
+        await Future.delayed(const Duration(seconds: 2));
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error placing order: $e'),
-              backgroundColor: Colors.red,
-            ),
-          );
+          // Navigator.pop(context);
         }
-      } finally {
-        if (mounted) {
-          setState(() {
-            _isPlacingOrder = false;
-          });
-        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error placing order: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isPlacingOrder = false;
+        });
       }
     }
   }
@@ -340,7 +211,6 @@ class _CartScreenState extends State<CartScreen> {
                       "Your cart is empty 🍵",
                       style: TextStyle(fontSize: 18, color: Colors.grey),
                     ),
-                  
                   ],
                 ),
               )
