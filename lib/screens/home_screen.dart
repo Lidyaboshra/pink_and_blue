@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:pink_and_blue/providers/cart_provider.dart';
 import 'menu_screen.dart';
 import 'cart_screen.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
-import 'admin_panel.dart';   // Make sure this import exists
+import 'admin_panel.dart'; // Make sure this import exists
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -32,10 +33,11 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
-
+    final cartProvider = Provider.of<CartProvider>(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Pink & Blue", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text("Pink & Blue",
+            style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFFFF69B4),
         foregroundColor: Colors.white,
         actions: [
@@ -51,13 +53,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               },
             ),
-          
+
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {
               await Provider.of<AuthProvider>(context, listen: false).signOut();
               if (mounted) {
-                Navigator.pushReplacementNamed(context, '/login'); // or push to LoginScreen
+                Navigator.pushReplacementNamed(
+                    context, '/login'); // or push to LoginScreen
               }
             },
           ),
@@ -71,9 +74,21 @@ class _HomeScreenState extends State<HomeScreen> {
         onTap: (index) {
           setState(() => _currentIndex = index);
         },
-        items: const [
+        items:  [
           BottomNavigationBarItem(icon: Icon(Icons.menu_book), label: "Menu"),
-          BottomNavigationBarItem(icon: Icon(Icons.shopping_cart), label: "Cart"),
+          BottomNavigationBarItem(
+            icon: Badge(
+              label: Text(
+                cartProvider.totalItemCount.toString(),
+                style:
+                    const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+              isLabelVisible: cartProvider.totalItemCount > 0,
+              backgroundColor: Colors.red,
+              child: const Icon(Icons.shopping_cart),
+            ),
+            label: "Cart",
+          ),
         ],
       ),
     );
