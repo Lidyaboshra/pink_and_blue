@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pink_and_blue/providers/cart_provider.dart';
+import 'package:pink_and_blue/screens/login_screen.dart';
 import 'menu_screen.dart';
 import 'cart_screen.dart';
 import 'package:provider/provider.dart';
@@ -59,8 +60,10 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () async {
               await Provider.of<AuthProvider>(context, listen: false).signOut();
               if (mounted) {
-                Navigator.pushReplacementNamed(
-                    context, '/login'); // or push to LoginScreen
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                ); // or push to LoginScreen
               }
             },
           ),
@@ -74,7 +77,7 @@ class _HomeScreenState extends State<HomeScreen> {
         onTap: (index) {
           setState(() => _currentIndex = index);
         },
-        items:  [
+        items: [
           BottomNavigationBarItem(icon: Icon(Icons.menu_book), label: "Menu"),
           BottomNavigationBarItem(
             icon: Badge(

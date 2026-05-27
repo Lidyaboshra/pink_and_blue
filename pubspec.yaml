@@ -41,6 +41,8 @@ dependencies:
   shared_preferences: ^2.5.3
   cached_network_image: ^3.4.1
   image_picker: ^1.2.0
+  geolocator: ^9.0.2  # Use this version instead of 10.1.0
+  geocoding: ^4.0.0
 
 dev_dependencies:
   flutter_test:
