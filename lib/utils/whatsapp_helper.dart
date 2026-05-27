@@ -1,11 +1,12 @@
 // whatsapp_helper.dart
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../providers/cart_provider.dart';
 
 class WhatsAppHelper {
-  static const String _phoneNumber = "+201275036476"; // Replace with your WhatsApp number
-  
+  static const String _phoneNumber = "+201275036476"; // Your number
+
   static Future<void> sendOrderWithLocation(
     BuildContext context,
     CartProvider cart,
@@ -13,18 +14,46 @@ class WhatsAppHelper {
     String locationOrPickup,
     String notes,
   ) async {
-    // Generate order message
-    String message = _generateOrderMessage(cart, customerPhone, locationOrPickup, notes);
-    
-    // Encode message for URL
+    if (cart.items.isEmpty) return;
+
+    // 1. Save order to database FIRST
+    bool saved = await _saveOrderToDatabase(
+      cart, 
+      customerPhone, 
+      locationOrPickup, 
+      notes
+    );
+
+    if (!saved) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to save order. Please try again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // 2. Generate beautiful message
+    String message = _generateOrderMessage(
+      cart, 
+      customerPhone, 
+      locationOrPickup, 
+      notes
+    );
+
+    // 3. Open WhatsApp
     String encodedMessage = Uri.encodeComponent(message);
-    
-    // Create WhatsApp URL
     String whatsappUrl = "https://wa.me/$_phoneNumber?text=$encodedMessage";
-    
+
     try {
-      if (await canLaunch(whatsappUrl)) {
-        await launch(whatsappUrl);
+      if (await canLaunchUrl(Uri.parse(whatsappUrl))) {
+        await launchUrl(
+          Uri.parse(whatsappUrl),
+          mode: LaunchMode.externalApplication,
+        );
+        
+        cart.clearCart(); // Clear cart after successful send
       } else {
         throw 'Could not launch WhatsApp';
       }
@@ -35,10 +64,46 @@ class WhatsAppHelper {
           backgroundColor: Colors.red,
         ),
       );
-      rethrow;
     }
   }
-  
+
+  static Future<bool> _saveOrderToDatabase(
+    CartProvider cart,
+    String customerPhone,
+    String locationOrPickup,
+    String notes,
+  ) async {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+
+      final List<Map<String, dynamic>> itemsJson = cart.items.map((item) {
+        double price = _getItemPrice(item);
+        return {
+          'name': item.drink.name,
+          'size': item.size,
+          'quantity': item.quantity,
+          'price': price,
+        };
+      }).toList();
+
+      await Supabase.instance.client.from('orders').insert({
+        'user_id': user?.id,
+        'items': itemsJson,
+        'total': cart.total,
+        'location': locationOrPickup,
+        'phone': customerPhone,
+        'notes': notes.isEmpty ? null : notes,
+        'status': 'pending',
+      });
+
+      print("✅ Order saved successfully to Supabase");
+      return true;
+    } catch (e) {
+      print("❌ Error saving order: $e");
+      return false;
+    }
+  }
+
   static String _generateOrderMessage(
     CartProvider cart,
     String customerPhone,
@@ -67,7 +132,6 @@ class WhatsAppHelper {
     buffer.writeln('━' * 30);
     buffer.writeln();
     
-    // Add each item
     for (int i = 0; i < cart.items.length; i++) {
       final item = cart.items[i];
       double price = _getItemPrice(item);
@@ -100,7 +164,7 @@ class WhatsAppHelper {
     
     return buffer.toString();
   }
-  
+
   static double _getItemPrice(CartItem item) {
     switch (item.size) {
       case 'Small':
